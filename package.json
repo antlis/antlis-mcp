@@ -1,0 +1,24 @@
+{
+  "name": "antlis-mcp",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.20.2",
+    "tsx": "^4.23.13"
+  },
+  "peerDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2",
+    "gray-matter": "^4.0.3",
+    "mcp-handler": "^2",
+    "zod": "^4"
+  }
+}
