@@ -174,7 +174,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 }
 
 function getCorsHeaders(origin: string | undefined) {
-  const allowed = ['https://antlis.is-a.dev', 'http://localhost:4321']
+  const allowed = ['https://antlis.is-a.dev', 'https://antlis.xyz', 'http://localhost:4321']
   const allowedOrigin = allowed.includes(origin ?? '') ? origin : allowed[0]
   return {
     'Access-Control-Allow-Origin': allowedOrigin!,
