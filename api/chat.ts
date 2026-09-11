@@ -173,16 +173,6 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
   }
 }
 
-function getCorsHeaders(origin: string | undefined) {
-  const allowed = ['https://antlis.is-a.dev', 'https://antlis.xyz', 'http://localhost:4321']
-  const allowedOrigin = allowed.includes(origin ?? '') ? origin : allowed[0]
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin!,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
-}
-
 // Simple in-memory rate limit (resets on cold start)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_MAX = 15
@@ -200,35 +190,42 @@ function checkRateLimit(ip: string): boolean {
   return true
 }
 
+const ALLOWED_ORIGINS = ['https://antlis.is-a.dev', 'http://localhost:4321']
+
+function json(res: any, status: number, data: Record<string, unknown>, origin: string | undefined) {
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin ?? '') ? origin : ALLOWED_ORIGINS[0]
+  return res.status(status).setHeader('Access-Control-Allow-Origin', allowedOrigin).setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS').setHeader('Access-Control-Allow-Headers', 'Content-Type').json(data)
+}
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers.origin as string | undefined
-  const corsHeaders = getCorsHeaders(origin)
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).setHeaders(corsHeaders).end()
+    const allowedOrigin = ALLOWED_ORIGINS.includes(origin ?? '') ? origin : ALLOWED_ORIGINS[0]
+    return res.status(204).setHeader('Access-Control-Allow-Origin', allowedOrigin).setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS').setHeader('Access-Control-Allow-Headers', 'Content-Type').end()
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).setHeaders(corsHeaders).json({ error: 'Method not allowed' })
+    return json(res, 405, { error: 'Method not allowed' }, origin)
   }
 
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? 'unknown'
   if (!checkRateLimit(ip)) {
-    return res.status(429).setHeaders(corsHeaders).json({ error: 'Rate limit exceeded. Try again in a minute.' })
+    return json(res, 429, { error: 'Rate limit exceeded. Try again in a minute.' }, origin)
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
-    return res.status(500).setHeaders(corsHeaders).json({ error: 'OPENROUTER_API_KEY not configured' })
+    return json(res, 500, { error: 'OPENROUTER_API_KEY not configured' }, origin)
   }
 
   const { messages } = req.body ?? {}
   if (!Array.isArray(messages) || messages.length === 0) {
-    return res.status(400).setHeaders(corsHeaders).json({ error: 'messages array required' })
+    return json(res, 400, { error: 'messages array required' }, origin)
   }
 
   if (messages.length > MAX_MESSAGES) {
-    return res.status(400).setHeaders(corsHeaders).json({ error: `Maximum ${MAX_MESSAGES} messages` })
+    return json(res, 400, { error: `Maximum ${MAX_MESSAGES} messages` }, origin)
   }
 
   const conversation: Array<Record<string, any>> = [
@@ -260,56 +257,35 @@ export default async function handler(req: any, res: any) {
       if (!response.ok) {
         const error = await response.text()
         console.error('OpenRouter error:', response.status, error)
-        return res.status(502).setHeaders(corsHeaders).json({ error: 'AI service unavailable' })
+        return json(res, 502, { error: 'AI service unavailable' }, origin)
       }
 
       const data = await response.json()
       const choice = data.choices?.[0]
 
       if (!choice) {
-        return res.status(502).setHeaders(corsHeaders).json({ error: 'No response from AI' })
+        return json(res, 502, { error: 'No response from AI' }, origin)
       }
 
       const message = choice.message
 
-      // If no tool calls, we're done
       if (!message.tool_calls || message.tool_calls.length === 0) {
-        return res.status(200).setHeaders(corsHeaders).json({
-          response: message.content,
-          toolCalls: toolCallsLog,
-        })
+        return json(res, 200, { response: message.content, toolCalls: toolCallsLog }, origin)
       }
 
-      // Add assistant message to conversation
-      conversation.push({
-        role: 'assistant',
-        content: message.content ?? '',
-      })
+      conversation.push({ role: 'assistant', content: message.content ?? '' })
 
-      // Execute each tool call
       for (const toolCall of message.tool_calls) {
         const fnName = toolCall.function.name
         let fnArgs: Record<string, string> = {}
-
-        try {
-          fnArgs = JSON.parse(toolCall.function.arguments)
-        } catch {
-          fnArgs = {}
-        }
+        try { fnArgs = JSON.parse(toolCall.function.arguments) } catch { fnArgs = {} }
 
         const output = await executeTool(fnName, fnArgs)
-
         toolCallsLog.push({ name: fnName, input: fnArgs, output })
-
-        conversation.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: output,
-        })
+        conversation.push({ role: 'tool', tool_call_id: toolCall.id, content: output })
       }
     }
 
-    // Max iterations reached — make one final call without tools
     const finalResponse = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -318,27 +294,18 @@ export default async function handler(req: any, res: any) {
         'HTTP-Referer': 'https://antlis.is-a.dev',
         'X-Title': 'antlis-portfolio-chat',
       },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: conversation,
-        max_tokens: 512,
-      }),
+      body: JSON.stringify({ model: MODEL, messages: conversation, max_tokens: 512 }),
     })
 
     if (finalResponse.ok) {
       const finalData = await finalResponse.json()
-      return res.status(200).setHeaders(corsHeaders).json({
-        response: finalData.choices?.[0]?.message?.content ?? 'Could not generate a response.',
-        toolCalls: toolCallsLog,
-      })
+      return json(res, 200, { response: finalData.choices?.[0]?.message?.content ?? 'Could not generate a response.', toolCalls: toolCallsLog }, origin)
     }
 
-    return res.status(200).setHeaders(corsHeaders).json({
-      response: 'I found several results but had trouble summarizing them. Check the project pages directly.',
-      toolCalls: toolCallsLog,
-    })
+    return json(res, 200, { response: 'I found several results but had trouble summarizing them. Check the project pages directly.', toolCalls: toolCallsLog }, origin)
   } catch (error) {
     console.error('Chat error:', error)
-    return res.status(500).setHeaders(corsHeaders).json({ error: 'Internal error' })
+    return json(res, 500, { error: 'Internal error' }, origin)
   }
 }
+
