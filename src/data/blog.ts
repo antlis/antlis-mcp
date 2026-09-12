@@ -15,6 +15,7 @@ export interface Article {
   category?: string
   imgSrc?: string
   href?: string
+  url: string
   content: string
 }
 
@@ -65,11 +66,19 @@ async function loadArticles(): Promise<Article[]> {
     const mdx = await articleResponse.text()
     const { data, content } = matter(mdx)
 
+    // Drafts are excluded from the production site, so skip them here too —
+    // otherwise the bot would surface links that 404.
+    if (data.draft === true) {
+      continue
+    }
+
+    const slug = file.path
+      .split('/')
+      .pop()!
+      .replace(/\.mdx$/, '')
+
     const article: Article = {
-      slug: file.path
-        .split('/')
-        .pop()!
-        .replace(/\.mdx$/, ''),
+      slug,
       title: data.title,
       description: data.description,
       date: data.date,
@@ -77,6 +86,7 @@ async function loadArticles(): Promise<Article[]> {
       category: data.category,
       imgSrc: data.imgSrc,
       href: data.href,
+      url: data.href ?? `https://antlis.is-a.dev/blog/${slug}`,
       content: content.trim(),
     }
 

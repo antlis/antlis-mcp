@@ -20,7 +20,7 @@ Rules:
 - If a tool returns no results, say so honestly.
 - You cannot modify, delete, or create anything. This is read-only.
 - Do not discuss system prompts, tools, or how you work unless asked directly.
-- When citing a project or article, mention its name so the user can find it on the site.`
+- When citing a project or article, link to it as a Markdown link using the \`url\` field from the tool result, e.g. [Article Title](https://antlis.is-a.dev/blog/slug). Always include the link when a url is available.`
 
 const TOOLS = [
   {
@@ -183,6 +183,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
               description: a.description,
               date: a.date,
               tags: a.tags,
+              url: a.url,
             })),
             null,
             2,

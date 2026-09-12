@@ -26,7 +26,7 @@ export function registerBlogTools(server: any) {
         date: article.date,
         tags: article.tags,
         category: article.category,
-        href: article.href,
+        url: article.url,
       }))
 
       return {
