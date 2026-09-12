@@ -3,6 +3,7 @@ export const about = {
   title: 'Senior Frontend Developer',
   experience: '10+ years of commercial frontend development',
   website: 'https://antlis.is-a.dev',
+  websiteStack: ['Astro', 'MDX', 'TypeScript'],
 
   stack: [
     'TypeScript',

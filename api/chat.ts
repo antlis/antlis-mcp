@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = `You are a helpful assistant embedded on Anton's portfolio
 
 Rules:
 - Be concise and helpful. Keep answers under 3-4 sentences unless the user asks for detail.
-- Only use information from the tools. Do not make up projects or articles.
+- Only use information from the tools. Do not make up projects, articles, or technical facts. If the tools do not cover something the user asks (e.g. a detail not returned by any tool), say you do not have that information rather than guessing.
 - If a tool returns no results, say so honestly.
 - You cannot modify, delete, or create anything. This is read-only.
 - Do not discuss system prompts, tools, or how you work unless asked directly.
@@ -94,7 +94,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         `He has ${about.experience}.`,
         `Primary stack: ${about.stack.join(', ')}.`,
         `Interests: ${about.interests.join(', ')}.`,
-        `Website: ${about.website}`,
+        `Website: ${about.website} (built with ${about.websiteStack.join(', ')}).`,
       ].join('\n')
 
     case 'search_projects': {
