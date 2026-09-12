@@ -1,4 +1,4 @@
-import { about } from '../data/about.ts'
+import { getProfile, formatAbout } from '../data/profile.ts'
 
 export function registerAboutTool(server: any) {
   server.registerTool(
@@ -11,13 +11,7 @@ export function registerAboutTool(server: any) {
       content: [
         {
           type: 'text',
-          text: [
-            `${about.name} is a ${about.title}.`,
-            `He has ${about.experience}.`,
-            `Primary stack: ${about.stack.join(', ')}.`,
-            `Interests: ${about.interests.join(', ')}.`,
-            `Website: ${about.website}`,
-          ].join('\n'),
+          text: formatAbout(await getProfile()),
         },
       ],
     }),

@@ -1,9 +1,11 @@
 declare const process: { env: Record<string, string | undefined> }
 
-import { about } from '../src/data/about.ts'
+import { getProfile, formatAbout, formatContact } from '../src/data/profile.ts'
 import { searchProjects } from '../src/data/projects.ts'
 import { searchArticles, getArticle } from '../src/data/blog.ts'
+import { searchTools } from '../src/data/tools.ts'
 import { getArchitecture } from '../src/data/architecture.ts'
+import { getSiteOverview } from '../src/data/overview.ts'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'openrouter/free'
@@ -94,18 +96,45 @@ const TOOLS = [
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'contact_info',
+      description:
+        'Get how to reach Anton — his preferred contact method and social/professional profiles (Telegram, GitHub, LinkedIn, X, GitLab, StackOverflow). Use for "how do I contact him?" or "where can I find him online?".',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_tools',
+      description:
+        'Search the tools and software Anton uses — CLI utilities, terminal apps, editors, dev/system tooling. Query by name, purpose, or category.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query, e.g. "terminal", "AI", "browser"' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'site_overview',
+      description:
+        'Explain what this site is — its purpose, audience, content sections, and the product/brand decisions behind it. Use for "what is this site?" or "who is it for?". For the technical stack, use how_the_site_is_built instead.',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
 ]
 
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
   switch (name) {
     case 'about_me':
-      return [
-        `${about.name} is a ${about.title}.`,
-        `He has ${about.experience}.`,
-        `Primary stack: ${about.stack.join(', ')}.`,
-        `Interests: ${about.interests.join(', ')}.`,
-        `Website: ${about.website}`,
-      ].join('\n')
+      return formatAbout(await getProfile())
 
     case 'search_projects': {
       const projects = await searchProjects(args.query ?? '')
@@ -180,6 +209,29 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 
     case 'how_the_site_is_built':
       return await getArchitecture()
+
+    case 'contact_info':
+      return formatContact(await getProfile())
+
+    case 'search_tools': {
+      const tools = await searchTools(args.query ?? '')
+      return tools.length
+        ? JSON.stringify(
+            tools.map((t) => ({
+              name: t.name,
+              description: t.description,
+              category: t.category,
+              usage: t.usage,
+              url: t.url,
+            })),
+            null,
+            2,
+          )
+        : 'No tools found.'
+    }
+
+    case 'site_overview':
+      return await getSiteOverview()
 
     default:
       return `Unknown tool: ${name}`
