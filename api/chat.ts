@@ -3,6 +3,7 @@ declare const process: { env: Record<string, string | undefined> }
 import { about } from '../src/data/about.ts'
 import { searchProjects } from '../src/data/projects.ts'
 import { searchArticles, getArticle } from '../src/data/blog.ts'
+import { getArchitecture } from '../src/data/architecture.ts'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'openrouter/free'
@@ -84,6 +85,15 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'how_the_site_is_built',
+      description:
+        "Explain how the portfolio website itself is built — framework, stack, structure, and conventions. Use for questions about the site's own technology (e.g. \"what framework is this built with?\").",
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
 ]
 
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
@@ -94,7 +104,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         `He has ${about.experience}.`,
         `Primary stack: ${about.stack.join(', ')}.`,
         `Interests: ${about.interests.join(', ')}.`,
-        `Website: ${about.website} (built with ${about.websiteStack.join(', ')}).`,
+        `Website: ${about.website}`,
       ].join('\n')
 
     case 'search_projects': {
@@ -167,6 +177,9 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
           )
         : `Article "${args.slug}" not found.`
     }
+
+    case 'how_the_site_is_built':
+      return await getArchitecture()
 
     default:
       return `Unknown tool: ${name}`
